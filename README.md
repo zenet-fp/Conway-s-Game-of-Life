@@ -72,7 +72,3 @@ The grid wraps at its edges using modulo arithmetic, so the world is effectively
 Works in any modern browser that supports the Canvas API and `requestAnimationFrame` — Chrome, Firefox, Safari, and Edge.
 
 ---
-
-## License
-
-MIT
