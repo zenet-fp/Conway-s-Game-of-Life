@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conway's Game of Life</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0e0e10; color: #e8e8e4; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 1rem; min-height: 100vh; }
+  h1 { font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: #888; margin-bottom: 0.5rem; }
+  canvas { display: block; border: 0.5px solid #333; border-radius: 6px; }
+  #controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 0.6rem 0; max-width: 1000px; width: 100%; }
+  label { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
+  input[type=range], select, input[type=number] { background: #1a1a1e; color: #ccc; border: 0.5px solid #444; border-radius: 4px; padding: 3px 6px; font-size: 12px; font-family: inherit; }
+  button { background: transparent; color: #aaa; border: 0.5px solid #444; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-family: inherit; cursor: pointer; }
+  button:hover { background: #1e1e22; color: #ddd; }
+  #stats { font-size: 11px; color: #555; padding: 2px 0 0.5rem; max-width: 1000px; width: 100%; }
+</style>
+</head>
+<body>
+
+<h1>Conway's Game of Life</h1>
+<canvas id="c"></canvas>
+
+<div id="controls">
+  <label>Grid Size
+    <select id="gridSize">
+      <option value="20" selected>20x20</option>
+      <option value="30">30x30</option>
+      <option value="40">40x40</option>
+      <option value="50">50x50</option>
+    </select>
+  </label>
+  <label>Speed
+    <input type="range" id="speed" min="1" max="10" value="5">
+  </label>
+  <label>Random Cells
+    <input type="number" id="randomCount" min="1" max="1000" value="100">
+  </label>
+  <button id="placeRandom">Random Spawn</button>
+  <button id="startPause">Start ▶</button>
+  <button id="reset">Reset ↺</button>
+</div>
+
+<div id="stats"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const COLORS = ['#7F77DD','#1D9E75','#D85A30','#378ADD','#BA7517','#D4537E','#639922','#E24B4A'];
+
+let gridSize = parseInt(document.getElementById('gridSize').value);
+let cellSize, cols, rows;
+let grid = [];
+let running = false;
+let frame = 0;
+let generation = 0;
+let lastStepTime = 0;
+let speed = parseInt(document.getElementById('speed').value);
+
+// --- SETUP GRID AND CANVAS ---
+function setupCanvasAndGrid() {
+  cols = gridSize;
+  cellSize = Math.min((window.innerWidth - 40) / cols, 30);
+  rows = Math.floor((window.innerHeight * 0.6) / cellSize);
+  canvas.width = cols * cellSize;
+  canvas.height = rows * cellSize;
+}
+
+function createGrid() {
+  grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
+}
+
+setupCanvasAndGrid();
+createGrid();
+
+// --- DRAWING ---
+function drawGrid() {
+  ctx.fillStyle = '#0e0e10';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for(let y=0; y<rows; y++){
+    for(let x=0; x<cols; x++){
+      if(grid[y][x]){
+        ctx.fillStyle = COLORS[(x+y) % COLORS.length];
+        ctx.fillRect(x*cellSize, y*cellSize, cellSize-1, cellSize-1);
+      }
+    }
+  }
+}
+
+// --- NEIGHBORS & STEP ---
+function countNeighbors(x,y){
+  let sum=0;
+  for(let i=-1;i<=1;i++){
+    for(let j=-1;j<=1;j++){
+      if(i===0 && j===0) continue;
+      const nx = (x+j+cols)%cols;
+      const ny = (y+i+rows)%rows;
+      sum += grid[ny][nx];
+    }
+  }
+  return sum;
+}
+
+function step(){
+  const next = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
+  for(let y=0;y<rows;y++){
+    for(let x=0;x<cols;x++){
+      const neighbors = countNeighbors(x,y);
+      if(grid[y][x]){
+        next[y][x] = (neighbors===2 || neighbors===3)?1:0;
+      } else {
+        next[y][x] = neighbors===3?1:0;
+      }
+    }
+  }
+  grid = next;
+}
+
+// --- CONTROLS ---
+document.getElementById('startPause').addEventListener('click', ()=>{
+  running = !running;
+  document.getElementById('startPause').textContent = running ? 'Pause ⏸' : 'Start ▶';
+});
+
+document.getElementById('reset').addEventListener('click', ()=>{
+  running = false;
+  document.getElementById('startPause').textContent = 'Start ▶';
+  createGrid();
+  drawGrid();
+  frame = 0;
+  generation = 0;
+  lastStepTime = 0;
+});
+
+document.getElementById('gridSize').addEventListener('change', e=>{
+  gridSize = parseInt(e.target.value);
+  setupCanvasAndGrid();
+  createGrid();
+  drawGrid();
+  generation = 0;
+  lastStepTime = 0;
+});
+
+document.getElementById('speed').addEventListener('input', e=>{
+  speed = parseInt(e.target.value);
+});
+
+document.getElementById('placeRandom').addEventListener('click', ()=>{
+  running = false;
+  document.getElementById('startPause').textContent = 'Start ▶';
+  createGrid();
+  frame = 0;
+  generation = 0;
+  lastStepTime = 0; // FIX: ensures step() won't fire the moment Start is clicked
+  let count = parseInt(document.getElementById('randomCount').value);
+  for(let i=0;i<count;i++){
+    const x = Math.floor(Math.random()*cols);
+    const y = Math.floor(Math.random()*rows);
+    grid[y][x] = 1;
+  }
+  drawGrid();
+});
+
+// --- STATS ---
+function updateStats(){
+  if(frame%10!==0) return;
+  let live = 0;
+  for(let row of grid) for(let cell of row) live+=cell;
+  document.getElementById('stats').textContent = `Generation: ${generation} · Live cells: ${live}`;
+}
+
+// --- LOOP ---
+function loop(timestamp){
+  if(running){
+    const interval = 1000 / (speed * 2); // ms between steps
+    if(timestamp - lastStepTime >= interval){
+      step();
+      generation++;
+      lastStepTime = timestamp;
+    }
+  }
+  drawGrid();
+  updateStats();
+  frame++;
+  requestAnimationFrame(loop);
+}
+
+// --- INIT ---
+drawGrid();
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
