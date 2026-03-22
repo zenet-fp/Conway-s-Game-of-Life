@@ -4,192 +4,803 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Conway's Game of Life</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0e0e10; color: #e8e8e4; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 1rem; min-height: 100vh; }
-  h1 { font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: #888; margin-bottom: 0.5rem; }
-  canvas { display: block; border: 0.5px solid #333; border-radius: 6px; }
-  #controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 0.6rem 0; max-width: 1000px; width: 100%; }
-  label { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
-  input[type=range], select, input[type=number] { background: #1a1a1e; color: #ccc; border: 0.5px solid #444; border-radius: 4px; padding: 3px 6px; font-size: 12px; font-family: inherit; }
-  button { background: transparent; color: #aaa; border: 0.5px solid #444; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-family: inherit; cursor: pointer; }
-  button:hover { background: #1e1e22; color: #ddd; }
-  #stats { font-size: 11px; color: #555; padding: 2px 0 0.5rem; max-width: 1000px; width: 100%; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e8e8e8;
+    --text-dim: #666;
+    --accent: #00ff88;
+    --accent-dim: #00ff8822;
+    --dead: #0a0a0a;
+    --cell: #000000;
+    --grid-line: #1c1c1c;
+    --danger: #ff4444;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+  }
+
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  header .gen-counter {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  header .gen-counter span {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px;
+    min-width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 16px 0;
+    gap: 0;
+  }
+
+  .section {
+    padding: 0 16px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    margin-top: 12px;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 10px 18px;
+    width: 100%;
+  }
+
+  .btn-primary:hover { background: #00ffaa; color: #000; border-color: #00ffaa; }
+
+  .btn-primary.running {
+    background: #1a1a1a;
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  .btn-primary.running:hover { background: var(--danger); color: #fff; }
+
+  .btn-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-row .btn { flex: 1; }
+
+  /* Sliders */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .control-row label {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .control-row label span {
+    color: var(--text);
+  }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    background: var(--border);
+    height: 3px;
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover { background: #00ffaa; }
+
+  /* Color pickers */
+  .color-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .color-row label {
+    font-size: 10px;
+    color: var(--text-dim);
+    flex: 1;
+    letter-spacing: 0.05em;
+  }
+
+  input[type=color] {
+    width: 36px;
+    height: 26px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: none; border-radius: 2px; }
+
+  /* Presets */
+  .preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .preset-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 7px 10px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .preset-btn:hover { border-color: var(--accent); color: var(--text); }
+  .preset-btn .tag { font-size: 8px; color: var(--accent); opacity: 0.6; }
+
+  /* Canvas area */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    overflow: hidden;
+    position: relative;
+  }
+
+  #gameCanvas {
+    cursor: crosshair;
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  /* Status bar */
+  .statusbar {
+    padding: 8px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    gap: 24px;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+
+  .statusbar span { color: var(--text); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent);
+    color: #000;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    letter-spacing: 0.08em;
+    z-index: 100;
+  }
+
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 </style>
 </head>
 <body>
 
-<h1>Conway's Game of Life</h1>
-<canvas id="c"></canvas>
+<header>
+  <h1>Conway's Game of Life</h1>
+  <div class="gen-counter">Generation <span id="genCount">0</span> &nbsp;·&nbsp; Population <span id="popCount">0</span></div>
+</header>
 
-<div id="controls">
-  <label>Grid Size
-    <select id="gridSize">
-      <option value="20" selected>20x20</option>
-      <option value="30">30x30</option>
-      <option value="40">40x40</option>
-      <option value="50">50x50</option>
-    </select>
-  </label>
-  <label>Speed
-    <input type="range" id="speed" min="1" max="10" value="5">
-  </label>
-  <label>Random Cells
-    <input type="number" id="randomCount" min="1" max="1000" value="100">
-  </label>
-  <button id="placeRandom">Random Spawn</button>
-  <button id="startPause">Start ▶</button>
-  <button id="reset">Reset ↺</button>
+<div class="layout">
+  <div class="sidebar">
+
+    <!-- SIMULATE -->
+    <div class="section">
+      <div class="section-label">Simulation</div>
+      <button class="btn-primary" id="startStopBtn" onclick="toggleSimulation()">▶ START</button>
+      <div style="margin-top:8px;" class="btn-row">
+        <button class="btn" onclick="stepOnce()">Step</button>
+        <button class="btn" onclick="clearGrid()">Clear</button>
+      </div>
+    </div>
+
+    <!-- SPEED -->
+    <div class="section">
+      <div class="section-label">Speed</div>
+      <div class="control-row">
+        <label>Interval <span id="speedLabel">100ms</span></label>
+        <input type="range" id="speedSlider" min="20" max="1000" value="100" step="10" oninput="updateSpeed(this.value)">
+      </div>
+    </div>
+
+    <!-- GRID -->
+    <div class="section">
+      <div class="section-label">Grid</div>
+      <div class="control-row">
+        <label>Columns <span id="colsLabel">60</span></label>
+        <input type="range" id="colsSlider" min="10" max="150" value="60" step="5" oninput="resizeGrid()">
+      </div>
+      <div class="control-row">
+        <label>Rows <span id="rowsLabel">40</span></label>
+        <input type="range" id="rowsSlider" min="10" max="100" value="40" step="5" oninput="resizeGrid()">
+      </div>
+    </div>
+
+    <!-- COLOURS -->
+    <div class="section">
+      <div class="section-label">Colours</div>
+      <div class="color-row">
+        <label>Live cell</label>
+        <input type="color" id="cellColor" value="#000000" oninput="updateColors()">
+      </div>
+      <div class="color-row">
+        <label>Dead cell</label>
+        <input type="color" id="bgColor" value="#f5f5f5" oninput="updateColors()">
+      </div>
+      <div class="color-row">
+        <label>Grid lines</label>
+        <input type="color" id="gridColor" value="#dddddd" oninput="updateColors()">
+      </div>
+    </div>
+
+    <!-- FILL -->
+    <div class="section">
+      <div class="section-label">Fill</div>
+      <div class="control-row">
+        <label>Density <span id="densityLabel">30%</span></label>
+        <input type="range" id="densitySlider" min="5" max="80" value="30" step="5" oninput="document.getElementById('densityLabel').textContent=this.value+'%'">
+      </div>
+      <button class="btn" style="width:100%" onclick="randomFill()">⚄ Random Fill</button>
+    </div>
+
+    <!-- PRESETS -->
+    <div class="section">
+      <div class="section-label">Presets</div>
+      <div class="preset-list">
+        <button class="preset-btn" onclick="loadPreset('glider')">Glider <span class="tag">CLASSIC</span></button>
+        <button class="preset-btn" onclick="loadPreset('gliderGun')">Gosper Glider Gun <span class="tag">INFINITE</span></button>
+        <button class="preset-btn" onclick="loadPreset('blinker')">Blinker <span class="tag">OSCILLATOR</span></button>
+        <button class="preset-btn" onclick="loadPreset('pulsar')">Pulsar <span class="tag">P3</span></button>
+        <button class="preset-btn" onclick="loadPreset('pentadecathlon')">Pentadecathlon <span class="tag">P15</span></button>
+        <button class="preset-btn" onclick="loadPreset('lwss')">LWSS <span class="tag">SPACESHIP</span></button>
+        <button class="preset-btn" onclick="loadPreset('rPentomino')">R-Pentomino <span class="tag">METHUSELAH</span></button>
+        <button class="preset-btn" onclick="loadPreset('diehard')">Diehard <span class="tag">METHUSELAH</span></button>
+        <button class="preset-btn" onclick="loadPreset('acorn')">Acorn <span class="tag">METHUSELAH</span></button>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="section">
+      <div class="section-label">Export</div>
+      <div class="btn-row">
+        <button class="btn" onclick="exportPNG()">PNG</button>
+        <button class="btn" onclick="exportJSON()">JSON</button>
+      </div>
+      <div style="margin-top:6px">
+        <button class="btn" style="width:100%;font-size:10px" onclick="importJSON()">Import JSON</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+      </div>
+    </div>
+
+  </div>
+
+  <div class="canvas-area">
+    <canvas id="gameCanvas"></canvas>
+  </div>
 </div>
 
-<div id="stats"></div>
+<div class="statusbar">
+  FPS <span id="fpsCount">—</span> &nbsp;·&nbsp; Grid <span id="gridSize">60×40</span> &nbsp;·&nbsp; Click or drag to toggle cells
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-const canvas = document.getElementById('c');
+// ─── State ───────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const COLORS = ['#7F77DD','#1D9E75','#D85A30','#378ADD','#BA7517','#D4537E','#639922','#E24B4A'];
 
-let gridSize = parseInt(document.getElementById('gridSize').value);
-let cellSize, cols, rows;
-let grid = [];
+let COLS = 60, ROWS = 40;
+let grid = createGrid();
 let running = false;
-let frame = 0;
+let intervalId = null;
+let speed = 100;
 let generation = 0;
-let lastStepTime = 0;
-let speed = parseInt(document.getElementById('speed').value);
+let isDrawing = false;
+let drawValue = 1;
+let lastFPS = 0, frameCount = 0, fpsTimer = 0;
 
-// --- SETUP GRID AND CANVAS ---
-function setupCanvasAndGrid() {
-  cols = gridSize;
-  cellSize = Math.min((window.innerWidth - 40) / cols, 30);
-  rows = Math.floor((window.innerHeight * 0.6) / cellSize);
-  canvas.width = cols * cellSize;
-  canvas.height = rows * cellSize;
+let cellColor = '#000000';
+let bgColor = '#f5f5f5';
+let gridColor = '#dddddd';
+
+// ─── Grid helpers ─────────────────────────────────────────────────────────────
+function createGrid(cols = COLS, rows = ROWS) {
+  return Array.from({ length: rows }, () => new Uint8Array(cols));
 }
 
-function createGrid() {
-  grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
+function cloneGrid(g) {
+  return g.map(row => new Uint8Array(row));
 }
 
-setupCanvasAndGrid();
-createGrid();
+// ─── Rendering ───────────────────────────────────────────────────────────────
+function fitCanvas() {
+  const area = canvas.parentElement;
+  const W = area.clientWidth - 20;
+  const H = area.clientHeight - 20;
+  const cellW = Math.floor(W / COLS);
+  const cellH = Math.floor(H / ROWS);
+  const cellSize = Math.max(4, Math.min(cellW, cellH));
+  canvas.width = cellSize * COLS;
+  canvas.height = cellSize * ROWS;
+  canvas.dataset.cellSize = cellSize;
+}
 
-// --- DRAWING ---
-function drawGrid() {
-  ctx.fillStyle = '#0e0e10';
+function draw() {
+  const cs = parseInt(canvas.dataset.cellSize) || 10;
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  for(let y=0; y<rows; y++){
-    for(let x=0; x<cols; x++){
-      if(grid[y][x]){
-        ctx.fillStyle = COLORS[(x+y) % COLORS.length];
-        ctx.fillRect(x*cellSize, y*cellSize, cellSize-1, cellSize-1);
+
+  // Draw cells
+  ctx.fillStyle = cellColor;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (grid[r][c]) {
+        ctx.fillRect(c * cs + 1, r * cs + 1, cs - 1, cs - 1);
       }
     }
   }
-}
 
-// --- NEIGHBORS & STEP ---
-function countNeighbors(x,y){
-  let sum=0;
-  for(let i=-1;i<=1;i++){
-    for(let j=-1;j<=1;j++){
-      if(i===0 && j===0) continue;
-      const nx = (x+j+cols)%cols;
-      const ny = (y+i+rows)%rows;
-      sum += grid[ny][nx];
+  // Grid lines
+  if (cs >= 5) {
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 0.5;
+    ctx.globalAlpha = 0.5;
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath(); ctx.moveTo(c * cs, 0); ctx.lineTo(c * cs, canvas.height); ctx.stroke();
     }
+    for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath(); ctx.moveTo(0, r * cs); ctx.lineTo(canvas.width, r * cs); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
-  return sum;
+
+  // Stats
+  let pop = 0;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) pop += grid[r][c];
+  document.getElementById('genCount').textContent = generation;
+  document.getElementById('popCount').textContent = pop;
 }
 
-function step(){
-  const next = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
-  for(let y=0;y<rows;y++){
-    for(let x=0;x<cols;x++){
-      const neighbors = countNeighbors(x,y);
-      if(grid[y][x]){
-        next[y][x] = (neighbors===2 || neighbors===3)?1:0;
-      } else {
-        next[y][x] = neighbors===3?1:0;
+// ─── Simulation ───────────────────────────────────────────────────────────────
+function nextGeneration() {
+  const next = createGrid();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      let n = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = (r + dr + ROWS) % ROWS;
+          const nc = (c + dc + COLS) % COLS;
+          n += grid[nr][nc];
+        }
       }
+      const alive = grid[r][c];
+      next[r][c] = alive ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0);
     }
   }
   grid = next;
+  generation++;
+  draw();
+
+  // FPS
+  frameCount++;
+  const now = performance.now();
+  if (now - fpsTimer >= 1000) {
+    lastFPS = Math.round(frameCount * 1000 / (now - fpsTimer));
+    document.getElementById('fpsCount').textContent = lastFPS;
+    frameCount = 0; fpsTimer = now;
+  }
 }
 
-// --- CONTROLS ---
-document.getElementById('startPause').addEventListener('click', ()=>{
+function toggleSimulation() {
   running = !running;
-  document.getElementById('startPause').textContent = running ? 'Pause ⏸' : 'Start ▶';
-});
-
-document.getElementById('reset').addEventListener('click', ()=>{
-  running = false;
-  document.getElementById('startPause').textContent = 'Start ▶';
-  createGrid();
-  drawGrid();
-  frame = 0;
-  generation = 0;
-  lastStepTime = 0;
-});
-
-document.getElementById('gridSize').addEventListener('change', e=>{
-  gridSize = parseInt(e.target.value);
-  setupCanvasAndGrid();
-  createGrid();
-  drawGrid();
-  generation = 0;
-  lastStepTime = 0;
-});
-
-document.getElementById('speed').addEventListener('input', e=>{
-  speed = parseInt(e.target.value);
-});
-
-document.getElementById('placeRandom').addEventListener('click', ()=>{
-  running = false;
-  document.getElementById('startPause').textContent = 'Start ▶';
-  createGrid();
-  frame = 0;
-  generation = 0;
-  lastStepTime = 0; // FIX: ensures step() won't fire the moment Start is clicked
-  let count = parseInt(document.getElementById('randomCount').value);
-  for(let i=0;i<count;i++){
-    const x = Math.floor(Math.random()*cols);
-    const y = Math.floor(Math.random()*rows);
-    grid[y][x] = 1;
+  const btn = document.getElementById('startStopBtn');
+  if (running) {
+    btn.textContent = '■ STOP';
+    btn.classList.add('running');
+    fpsTimer = performance.now(); frameCount = 0;
+    intervalId = setInterval(nextGeneration, speed);
+  } else {
+    btn.textContent = '▶ START';
+    btn.classList.remove('running');
+    clearInterval(intervalId);
+    document.getElementById('fpsCount').textContent = '—';
   }
-  drawGrid();
-});
-
-// --- STATS ---
-function updateStats(){
-  if(frame%10!==0) return;
-  let live = 0;
-  for(let row of grid) for(let cell of row) live+=cell;
-  document.getElementById('stats').textContent = `Generation: ${generation} · Live cells: ${live}`;
 }
 
-// --- LOOP ---
-function loop(timestamp){
-  if(running){
-    const interval = 1000 / (speed * 2); // ms between steps
-    if(timestamp - lastStepTime >= interval){
-      step();
-      generation++;
-      lastStepTime = timestamp;
-    }
-  }
-  drawGrid();
-  updateStats();
-  frame++;
-  requestAnimationFrame(loop);
+function stepOnce() {
+  if (running) toggleSimulation();
+  nextGeneration();
 }
 
-// --- INIT ---
-drawGrid();
-requestAnimationFrame(loop);
+function clearGrid() {
+  if (running) toggleSimulation();
+  grid = createGrid();
+  generation = 0;
+  draw();
+}
 
+// ─── Speed / Grid controls ────────────────────────────────────────────────────
+function updateSpeed(v) {
+  speed = parseInt(v);
+  document.getElementById('speedLabel').textContent = v + 'ms';
+  if (running) { clearInterval(intervalId); intervalId = setInterval(nextGeneration, speed); }
+}
+
+function resizeGrid() {
+  const newCols = parseInt(document.getElementById('colsSlider').value);
+  const newRows = parseInt(document.getElementById('rowsSlider').value);
+  document.getElementById('colsLabel').textContent = newCols;
+  document.getElementById('rowsLabel').textContent = newRows;
+  document.getElementById('gridSize').textContent = newCols + '×' + newRows;
+
+  const newGrid = createGrid(newCols, newRows);
+  const minR = Math.min(ROWS, newRows);
+  const minC = Math.min(COLS, newCols);
+  for (let r = 0; r < minR; r++)
+    for (let c = 0; c < minC; c++)
+      newGrid[r][c] = grid[r][c];
+
+  COLS = newCols; ROWS = newRows; grid = newGrid;
+  fitCanvas();
+  draw();
+}
+
+function updateColors() {
+  cellColor = document.getElementById('cellColor').value;
+  bgColor = document.getElementById('bgColor').value;
+  gridColor = document.getElementById('gridColor').value;
+  draw();
+}
+
+// ─── Fill ────────────────────────────────────────────────────────────────────
+function randomFill() {
+  const density = parseInt(document.getElementById('densitySlider').value) / 100;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      grid[r][c] = Math.random() < density ? 1 : 0;
+  generation = 0;
+  draw();
+}
+
+// ─── Mouse drawing ────────────────────────────────────────────────────────────
+function getCellAt(e) {
+  const rect = canvas.getBoundingClientRect();
+  const cs = parseInt(canvas.dataset.cellSize) || 10;
+  const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+  return { c: Math.floor(x / cs), r: Math.floor(y / cs) };
+}
+
+canvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  const { c, r } = getCellAt(e);
+  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+    drawValue = grid[r][c] ? 0 : 1;
+    grid[r][c] = drawValue;
+    isDrawing = true;
+    draw();
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!isDrawing) return;
+  const { c, r } = getCellAt(e);
+  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+    grid[r][c] = drawValue;
+    draw();
+  }
+});
+
+window.addEventListener('mouseup', () => { isDrawing = false; });
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const { c, r } = getCellAt(touch);
+  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+    drawValue = grid[r][c] ? 0 : 1;
+    grid[r][c] = drawValue;
+    isDrawing = true;
+    draw();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!isDrawing) return;
+  const touch = e.touches[0];
+  const { c, r } = getCellAt(touch);
+  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+    grid[r][c] = drawValue;
+    draw();
+  }
+}, { passive: false });
+
+// ─── Presets ──────────────────────────────────────────────────────────────────
+const PRESETS = {
+  glider: { w: 5, h: 5, cells: [[0,1],[1,2],[2,0],[2,1],[2,2]] },
+  blinker: { w: 3, h: 1, cells: [[0,0],[0,1],[0,2]] },
+  pulsar: {
+    w: 13, h: 13,
+    cells: [
+      [0,2],[0,3],[0,4],[0,8],[0,9],[0,10],
+      [2,0],[2,5],[2,7],[2,12],
+      [3,0],[3,5],[3,7],[3,12],
+      [4,0],[4,5],[4,7],[4,12],
+      [5,2],[5,3],[5,4],[5,8],[5,9],[5,10],
+      [7,2],[7,3],[7,4],[7,8],[7,9],[7,10],
+      [8,0],[8,5],[8,7],[8,12],
+      [9,0],[9,5],[9,7],[9,12],
+      [10,0],[10,5],[10,7],[10,12],
+      [12,2],[12,3],[12,4],[12,8],[12,9],[12,10]
+    ]
+  },
+  pentadecathlon: {
+    w: 10, h: 3,
+    cells: [
+      [1,0],[1,1],[0,2],[2,2],[1,3],[1,4],[1,5],[1,6],[0,7],[2,7],[1,8],[1,9]
+    ]
+  },
+  lwss: {
+    w: 5, h: 4,
+    cells: [[0,1],[0,4],[1,0],[2,0],[2,4],[3,0],[3,1],[3,2],[3,3]]
+  },
+  rPentomino: { w: 3, h: 3, cells: [[0,1],[0,2],[1,0],[1,1],[2,1]] },
+  diehard: {
+    w: 8, h: 3,
+    cells: [[0,0],[0,1],[1,1],[1,5],[1,6],[1,7],[2,6]]
+  },
+  acorn: {
+    w: 7, h: 3,
+    cells: [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]]
+  },
+  gliderGun: {
+    w: 36, h: 9,
+    cells: [
+      [0,24],
+      [1,22],[1,24],
+      [2,12],[2,13],[2,20],[2,21],[2,34],[2,35],
+      [3,11],[3,15],[3,20],[3,21],[3,34],[3,35],
+      [4,0],[4,1],[4,10],[4,16],[4,20],[4,21],
+      [5,0],[5,1],[5,10],[5,14],[5,16],[5,17],[5,22],[5,24],
+      [6,10],[6,16],[6,24],
+      [7,11],[7,15],
+      [8,12],[8,13]
+    ]
+  }
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  if (running) toggleSimulation();
+  grid = createGrid();
+  generation = 0;
+  const offR = Math.max(0, Math.floor((ROWS - p.h) / 2));
+  const offC = Math.max(0, Math.floor((COLS - p.w) / 2));
+  for (const [r, c] of p.cells) {
+    const nr = r + offR, nc = c + offC;
+    if (nr < ROWS && nc < COLS) grid[nr][nc] = 1;
+  }
+  draw();
+  showToast(name.replace(/([A-Z])/g, ' $1').trim() + ' loaded');
+}
+
+// ─── Export / Import ──────────────────────────────────────────────────────────
+function exportPNG() {
+  // render at 2× for quality
+  const cs = parseInt(canvas.dataset.cellSize) || 10;
+  const offscreen = document.createElement('canvas');
+  offscreen.width = canvas.width;
+  offscreen.height = canvas.height;
+  const oc = offscreen.getContext('2d');
+  oc.fillStyle = bgColor;
+  oc.fillRect(0, 0, offscreen.width, offscreen.height);
+  oc.fillStyle = cellColor;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c]) oc.fillRect(c * cs + 1, r * cs + 1, cs - 1, cs - 1);
+
+  const a = document.createElement('a');
+  a.href = offscreen.toDataURL('image/png');
+  a.download = `game-of-life-gen${generation}.png`;
+  a.click();
+  showToast('PNG exported');
+}
+
+function exportJSON() {
+  const data = {
+    cols: COLS, rows: ROWS, generation,
+    cellColor, bgColor, gridColor,
+    cells: []
+  };
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c]) data.cells.push([r, c]);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `game-of-life-gen${generation}.json`;
+  a.click();
+  showToast('JSON exported');
+}
+
+function importJSON() {
+  document.getElementById('importFile').click();
+}
+
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (running) toggleSimulation();
+      COLS = data.cols || COLS;
+      ROWS = data.rows || ROWS;
+      document.getElementById('colsSlider').value = COLS;
+      document.getElementById('rowsSlider').value = ROWS;
+      document.getElementById('colsLabel').textContent = COLS;
+      document.getElementById('rowsLabel').textContent = ROWS;
+      document.getElementById('gridSize').textContent = COLS + '×' + ROWS;
+      if (data.cellColor) { cellColor = data.cellColor; document.getElementById('cellColor').value = cellColor; }
+      if (data.bgColor) { bgColor = data.bgColor; document.getElementById('bgColor').value = bgColor; }
+      if (data.gridColor) { gridColor = data.gridColor; document.getElementById('gridColor').value = gridColor; }
+      generation = data.generation || 0;
+      grid = createGrid();
+      for (const [r, c] of (data.cells || []))
+        if (r < ROWS && c < COLS) grid[r][c] = 1;
+      fitCanvas();
+      draw();
+      showToast('Layout imported');
+    } catch { showToast('Invalid JSON file'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => { fitCanvas(); draw(); });
+fitCanvas();
+loadPreset('glider');
 </script>
 </body>
 </html>
